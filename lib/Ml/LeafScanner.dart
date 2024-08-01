@@ -1,160 +1,223 @@
-import 'dart:typed_data';
+// leaf_scanner_screen.dart
+import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:lottie/lottie.dart';
+import 'package:flutter_tflite/flutter_tflite.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:developer' as devtools;
 
-import 'package:naturesync/data/models/themes_model.dart';
-import 'package:naturesync/data/providers/theme_provider.dart';
-import 'package:naturesync/logic/image_picker/image_picker.dart';
-import 'package:naturesync/presentation/widgets/elevated_notification.dart';
-import 'package:naturesync/presentation/widgets/buttons/appbar_leading_button.dart';
-
-class LeafScanner extends ConsumerStatefulWidget {
-  const LeafScanner({super.key});
+class LeafScannerScreen extends StatefulWidget {
+  const LeafScannerScreen({super.key});
 
   @override
-  _LeafScannerState createState() => _LeafScannerState();
+  State<LeafScannerScreen> createState() => _LeafScannerScreenState();
 }
 
-class _LeafScannerState extends ConsumerState<LeafScanner> {
-  Uint8List? imageBytes;
+class _LeafScannerScreenState extends State<LeafScannerScreen> {
+  File? filePath;
+  String label = '';
+  double confidence = 0.0;
+
+  Future<void> _tfLteInit() async {
+    String? res = await Tflite.loadModel(
+        model: "assets/plant_disease_model (3).tflite",
+        labels: "assets/labels.txt",
+        numThreads: 1, // defaults to 1
+        isAsset:
+        true, // defaults to true, set to false to load resources outside assets
+        useGpuDelegate:
+        false // defaults to false, set to true to use GPU delegate
+    );
+  }
+
+  pickImageGallery() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image == null) return;
+
+    var imageMap = File(image.path);
+
+    setState(() {
+      filePath = imageMap;
+    });
+
+    var recognitions = await Tflite.runModelOnImage(
+        path: image.path, // required
+        imageMean: 0.0, // defaults to 117.0
+        imageStd: 255.0, // defaults to 1.0
+        numResults: 2, // defaults to 5
+        threshold: 0.2, // defaults to 0.1
+        asynch: true // defaults to true
+    );
+
+    if (recognitions == null) {
+      devtools.log("recognitions is Null");
+      return;
+    }
+    devtools.log(recognitions.toString());
+    setState(() {
+      confidence = (recognitions[0]['confidence'] * 100);
+      label = recognitions[0]['label'].toString();
+    });
+  }
+
+  pickImageCamera() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.camera);
+
+    if (image == null) return;
+
+    var imageMap = File(image.path);
+
+    setState(() {
+      filePath = imageMap;
+    });
+
+    var recognitions = await Tflite.runModelOnImage(
+        path: image.path, // required
+        imageMean: 0.0, // defaults to 117.0
+        imageStd: 255.0, // defaults to 1.0
+        numResults: 2, // defaults to 5
+        threshold: 0.2, // defaults to 0.1
+        asynch: true // defaults to true
+    );
+
+    if (recognitions == null) {
+      devtools.log("recognitions is Null");
+      return;
+    }
+    devtools.log(recognitions.toString());
+    setState(() {
+      confidence = (recognitions[0]['confidence'] * 100);
+      label = recognitions[0]['label'].toString();
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    Tflite.close();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _tfLteInit();
+  }
 
   @override
   Widget build(BuildContext context) {
-    Themes theme = ref.watch(themesProvider);
-
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: theme.backgroundColor,
-        leading: LeadingButton(
-          iconColor: theme.textColor,
-          backgroundColor: theme.primaryColor,
-        ),
-        title: Text(
-          "LEAF SCANNER",
-          style: GoogleFonts.rubik(
-            color: theme.textColor,
-            fontSize: 16,
-          ),
-        ),
+        title: const Text("Leaf Scan"),centerTitle: true,
       ),
-      backgroundColor: theme.backgroundColor,
-      body: SafeArea(
+      body: SingleChildScrollView(
         child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                children: [
-                  // Display selected image or animation
-                  if (imageBytes != null)
-                    Image.memory(
-                      imageBytes!,
-                      width: MediaQuery.of(context).size.width / 1.5,
-                      height: MediaQuery.of(context).size.width / 1.5,
-                      fit: BoxFit.cover,
-                    )
-                  else
-                    Lottie.asset("assets/animations/taking_a_picture.json",
-                        width: 128, height: 128),
-
-                  Column(
-                    children: [
-                      Text(
-                        "Choose a picture of the leaf",
-                        style: GoogleFonts.openSans(
-                          color: theme.textColor,
-                          fontSize: 18,
+          child: Column(
+            children: [
+              const SizedBox(
+                height: 12,
+              ),
+              Card(
+                elevation: 20,
+                clipBehavior: Clip.hardEdge,
+                child: SizedBox(
+                  width: 300,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        const SizedBox(
+                          height: 18,
                         ),
-                      ),
-                      Text(
-                        "Make sure the leaf is clear and well-lit",
-                        style: GoogleFonts.openSans(
-                          color: theme.textColor,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(color: theme.primaryColor),
-                    width: MediaQuery.of(context).size.width - 50,
-                    height: 4,
-                  ),
-                  const SizedBox(height: 16),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.all(12.0),
-                          backgroundColor: theme.secondaryColor,
-                        ),
-                        onPressed: () async {
-                          Uint8List? selectedImage = await ImageSelector().pickImage(ImageSource.gallery);
-
-                          if (context.mounted) {
-                            if (selectedImage == null) {
-                              showElevatedNotification(
-                                  context,
-                                  "Invalid image selected. Please try again.",
-                                  theme.secondaryColor);
-                              return;
-                            }
-                            setState(() {
-                              imageBytes = selectedImage;
-                            });
-                          }
-                        },
-                        icon: Icon(
-                          Icons.image,
-                          color: theme.textColor,
-                          size: 20,
-                        ),
-                        label: Text(
-                          "Gallery",
-                          style: GoogleFonts.openSans(
-                            color: theme.textColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      if (imageBytes != null)
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.all(12.0),
-                            backgroundColor: theme.secondaryColor,
-                          ),
-                          onPressed: () {
-                            // Add your scan functionality here
-                            showElevatedNotification(
-                              context,
-                              "Scan functionality to be implemented.",
-                              theme.secondaryColor,
-                            );
-                          },
-                          child: Text(
-                            "Scan",
-                            style: GoogleFonts.openSans(
-                              color: theme.textColor,
-                              fontSize: 14,
+                        Container(
+                          height: 280,
+                          width: 280,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            image: const DecorationImage(
+                              image: AssetImage('assets/appIcon.png'),
                             ),
                           ),
+                          child: filePath == null
+                              ? const Text('')
+                              : Image.file(
+                            filePath!,
+                            fit: BoxFit.fill,
+                          ),
                         ),
-                    ],
+                        const SizedBox(
+                          height: 12,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            children: [
+                              Text(
+                                label,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(
+                                height: 12,
+                              ),
+                              Text(
+                                "The Accuracy is ${confidence.toStringAsFixed(0)}%",
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(
+                                height: 12,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(
+                height: 8,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  pickImageCamera();
+                },
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 30, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    foregroundColor: Colors.black),
+                child: const Text(
+                  "Take a Photo",
+                ),
+              ),
+              const SizedBox(
+                height: 8,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  pickImageGallery();
+                },
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 30, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    foregroundColor: Colors.black),
+                child: const Text(
+                  "Pick from gallery",
+                ),
+              ),
+            ],
           ),
         ),
       ),

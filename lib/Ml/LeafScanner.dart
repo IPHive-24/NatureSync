@@ -1,36 +1,34 @@
-// leaf_scanner_screen.dart
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_tflite/flutter_tflite.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'dart:developer' as devtools;
 
-class LeafScannerScreen extends StatefulWidget {
-  const LeafScannerScreen({super.key});
+import 'package:tflite/tflite.dart';
+
+class LeafScanner extends StatefulWidget {
+  const LeafScanner({super.key});
 
   @override
-  State<LeafScannerScreen> createState() => _LeafScannerScreenState();
+  State<LeafScanner> createState() => _LeafScannerState();
 }
 
-class _LeafScannerScreenState extends State<LeafScannerScreen> {
+class _LeafScannerState extends State<LeafScanner> {
   File? filePath;
   String label = '';
   double confidence = 0.0;
 
   Future<void> _tfLteInit() async {
     String? res = await Tflite.loadModel(
-        model: "assets/plant_disease_model (3).tflite",
+        model: "assets/model_unquant.tflite",
         labels: "assets/labels.txt",
         numThreads: 1, // defaults to 1
-        isAsset:
-        true, // defaults to true, set to false to load resources outside assets
-        useGpuDelegate:
-        false // defaults to false, set to true to use GPU delegate
+        isAsset: true, // defaults to true, set to false to load resources outside assets
+        useGpuDelegate: false // defaults to false, set to true to use GPU delegate
     );
   }
 
-  pickImageGallery() async {
+  Future<void> pickImageGallery() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
@@ -62,7 +60,7 @@ class _LeafScannerScreenState extends State<LeafScannerScreen> {
     });
   }
 
-  pickImageCamera() async {
+  Future<void> pickImageCamera() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.camera);
 
@@ -110,7 +108,7 @@ class _LeafScannerScreenState extends State<LeafScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Leaf Scan"),centerTitle: true,
+        title: const Text("Mango Dresses Detection"),
       ),
       body: SingleChildScrollView(
         child: Center(
@@ -185,9 +183,7 @@ class _LeafScannerScreenState extends State<LeafScannerScreen> {
                 height: 8,
               ),
               ElevatedButton(
-                onPressed: () {
-                  pickImageCamera();
-                },
+                onPressed: pickImageCamera,
                 style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 30, vertical: 10),
@@ -203,9 +199,7 @@ class _LeafScannerScreenState extends State<LeafScannerScreen> {
                 height: 8,
               ),
               ElevatedButton(
-                onPressed: () {
-                  pickImageGallery();
-                },
+                onPressed: pickImageGallery,
                 style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 30, vertical: 10),
